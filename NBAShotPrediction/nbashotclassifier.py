@@ -20,8 +20,22 @@ sns.set_style('whitegrid')
 palette = sns.color_palette('deep', 5)
 palette[1], palette[2] = palette[2], palette[1]
 
+# detect the use of the test set to adjust for missing header (SHOT_MADE_FLAG)
+def test_data_loaded(data_frame):
+    """The 'SHOT_MADE_FLAG' header is not present in the test set (solution_no_answer.csv)
+        and thus, cannot be indexed. When dropping old features, this header must be removed from the list.
+        The 'EVENT_TYPE' header is the same thing, so it is used instead."""
+    # drop header from the data frame
+    data_frame = nba.drop(['ACTION_TYPE', 'EVENTTIME', 'EVENT_TYPE', 'GAME_DATE', 'GAME_EVENT_ID', 'GAME_ID', 'HTM',
+                'MINUTES_REMAINING', 'PERIOD', 'PLAYER_ID', 'PLAYER_NAME', 'QUARTER', 'SECONDS_REMAINING',
+                'SHOT_ATTEMPTED_FLAG', 'SHOT_TIME', 'SHOT_TYPE', 'SHOT_ZONE_AREA', 'SHOT_ZONE_BASIC',
+                'SHOT_ZONE_RANGE', 'TEAM_ID', 'TEAM_NAME', 'VTM', 'LOC_X', 'LOC_Y'], axis=1)
+    return data_frame
+
+# define file name
+file_name = 'train.csv'
 # load the NBA shot data set using Pandas
-nba = pd.read_csv('train.csv')
+nba = pd.read_csv(file_name)
 
 # show heatmap of missing values
 # plt.figure(figsize=(12, 12))
@@ -33,29 +47,35 @@ nba = pd.read_csv('train.csv')
 
 # convert categorical classes into binary values to feed to the model
 action_type = pd.get_dummies(nba['ACTION_TYPE'])
+event_type = pd.get_dummies(nba['EVENT_TYPE'], drop_first=True) # returns 'Missed Shot' as 1 (Made Shot=0)
 shot_type = pd.get_dummies(nba['SHOT_TYPE'])
 shot_zone_area = pd.get_dummies(nba['SHOT_ZONE_AREA'])
 shot_zone_basic = pd.get_dummies(nba['SHOT_ZONE_BASIC'])
 shot_zone_range = pd.get_dummies(nba['SHOT_ZONE_RANGE'])
 
-# remove old features
-nba = nba.drop(['ACTION_TYPE', 'EVENTTIME', 'EVENT_TYPE', 'GAME_DATE', 'GAME_EVENT_ID',
-                'GAME_ID', 'HTM', 'MINUTES_REMAINING', 'PERIOD', 'PLAYER_ID', 'PLAYER_NAME',
-                'QUARTER', 'SECONDS_REMAINING', 'SHOT_ATTEMPTED_FLAG', 'SHOT_TIME', 'SHOT_TYPE',
-                'SHOT_ZONE_AREA', 'SHOT_ZONE_BASIC', 'SHOT_ZONE_RANGE', 'TEAM_ID', 'TEAM_NAME', 'VTM', 'LOC_X', 'LOC_Y'], axis=1)
+# detect use of test set
+if file_name=='solution_no_answer.csv':
+    nba = test_data_loaded(nba)
+else: # training or validation set are being used
+    # remove old features
+    nba = nba.drop(['ACTION_TYPE', 'EVENTTIME', 'EVENT_TYPE', 'GAME_DATE', 'GAME_EVENT_ID', 'GAME_ID', 'HTM',
+                    'MINUTES_REMAINING', 'PERIOD', 'PLAYER_ID', 'PLAYER_NAME', 'QUARTER', 'SECONDS_REMAINING',
+                    'SHOT_ATTEMPTED_FLAG', 'SHOT_MADE_FLAG', 'SHOT_TIME', 'SHOT_TYPE', 'SHOT_ZONE_AREA', 'SHOT_ZONE_BASIC',
+                    'SHOT_ZONE_RANGE', 'TEAM_ID', 'TEAM_NAME', 'VTM', 'LOC_X', 'LOC_Y'], axis=1)
+
 # add all of the new features
-nba = pd.concat([nba, action_type, shot_type, shot_zone_area, shot_zone_basic, shot_zone_range], axis=1)
+nba = pd.concat([nba, action_type, event_type, shot_type, shot_zone_area, shot_zone_basic, shot_zone_range], axis=1)
 
 # define prediction target
-y = nba.SHOT_MADE_FLAG
-# set prediction data (return view/copy with column removed)
-X = nba.drop('SHOT_MADE_FLAG', axis=1)
+y = nba['Missed Shot']
+# set prediction data (return view/copy with column(s) removed)
+X = nba.drop('Missed Shot', axis=1)
 
 # create a randomized train and test split with scikit-learn
 # and withhold all test data from model when training
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.30, random_state=42)
 
-# create logistic regression model
+# create logistic regression model (transformed = 1 / (1 + e^-x))
 logmodel = LogisticRegression()
 
 # fit/train the model on the training data
