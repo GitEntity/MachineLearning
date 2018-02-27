@@ -26,7 +26,7 @@ def test_data_loaded(data_frame):
         and thus, cannot be indexed. When dropping old features, this header must be removed from the list.
         The 'EVENT_TYPE' header is the same thing, so it is used instead."""
     # drop header from the data frame
-    data_frame = data_frame.drop(['ACTION_TYPE', 'EVENTTIME', 'EVENT_TYPE', 'GAME_DATE', 'GAME_ID', 'HTM',
+    data_frame = data_frame.drop(['ACTION_TYPE', 'EVENTTIME', 'GAME_DATE', 'HTM',
                 'MINUTES_REMAINING', 'PERIOD', 'PLAYER_ID', 'PLAYER_NAME', 'QUARTER', 'SECONDS_REMAINING',
                 'SHOT_ATTEMPTED_FLAG', 'SHOT_TIME', 'SHOT_TYPE', 'SHOT_ZONE_AREA', 'SHOT_ZONE_BASIC',
                 'SHOT_ZONE_RANGE', 'TEAM_ID', 'TEAM_NAME', 'VTM', 'LOC_X', 'LOC_Y'], axis=1)
@@ -69,8 +69,6 @@ nba = pd.concat([nba, action_type, shot_type, shot_zone_area, shot_zone_basic, s
 y = nba['SHOT_MADE_FLAG']
 # set prediction data (return view/copy with column(s) removed)
 X = nba.drop(['SHOT_MADE_FLAG', 'GAME_EVENT_ID'], axis=1)
-# create view that still includes 'GAME_EVENT_ID' header to merge into submission
-#nba_2 = nba.drop('Missed Shot', axis=1)
 
 # scaler = StandardScaler()
 # X_scaled = scaler.fit_transform(X)
@@ -85,30 +83,31 @@ logmodel = LogisticRegression()
 # fit/train the model on the training data
 logmodel.fit(X, y)
 
+# get predictions for the trained model
 predictions_train = logmodel.predict(X)
 
 # import test data ************************************************
-# test_nba = pd.read_csv('solution_no_answer.csv')
-#
-# # convert categorical classes into binary values to feed into the model
-# test_action_type = pd.get_dummies(test_nba['ACTION_TYPE'])
-# test_shot_type = pd.get_dummies(test_nba['SHOT_TYPE'])
-# test_shot_zone_area = pd.get_dummies(test_nba['SHOT_ZONE_AREA'])
-# test_shot_zone_basic = pd.get_dummies(test_nba['SHOT_ZONE_BASIC'])
-# test_shot_zone_range = pd.get_dummies(test_nba['SHOT_ZONE_RANGE'])
-#
-# # get new dataframe for test data
-# test_nba = test_data_loaded(test_nba)
-#
-# # add the new features
-# test_nba = pd.concat([test_nba, test_action_type, test_shot_type, test_shot_zone_area,
-#                       test_shot_zone_basic, test_shot_zone_range], axis=1)
-#
-# X_test = test_nba.drop(['Missed Shot', 'GAME_EVENT_ID'], axis=1)
-# test_nba_2 = test_nba.drop('Missed Shot', axis=1)
-#
-# # generate predictions for the withheld test data
-# predictions = logmodel.predict(X_test)
+test_nba = pd.read_csv('solution_no_answer.csv')
+
+# convert categorical classes into binary values to feed into the model
+test_action_type = pd.get_dummies(test_nba['ACTION_TYPE'])
+test_shot_type = pd.get_dummies(test_nba['SHOT_TYPE'])
+test_shot_zone_area = pd.get_dummies(test_nba['SHOT_ZONE_AREA'])
+test_shot_zone_basic = pd.get_dummies(test_nba['SHOT_ZONE_BASIC'])
+test_shot_zone_range = pd.get_dummies(test_nba['SHOT_ZONE_RANGE'])
+
+# get new dataframe for test data
+test_nba = test_data_loaded(test_nba)
+
+# add the new features
+test_nba = pd.concat([test_nba, test_action_type, test_shot_type, test_shot_zone_area,
+                      test_shot_zone_basic, test_shot_zone_range], axis=1)
+
+# set prediction data (return view/copy with column(s) removed)
+X_test = test_nba.drop('GAME_EVENT_ID', axis=1)
+
+# generate predictions for the withheld test data
+predictions_test = logmodel.predict(X_test)
 # #***************************************************************
 # # create submission for Kaggle
 # submission = pd.DataFrame({"GAME_EVENT_ID": test_nba_2["GAME_EVENT_ID"], "SHOT_MADE_FLAG": predictions})
@@ -117,18 +116,5 @@ predictions_train = logmodel.predict(X)
 # submission.to_csv("new_logreg_submission.csv", index=False) # do not save index values
 
 # evaluate performance of the model
-print(classification_report(y, predictions_train))
-print("Accuracy: {}".format(accuracy_score(y, predictions_train))) # can alternatively use model.score(X, y)
-
-# # create Support Vector Machine/Classifier (SVM/SVC) model
-# svmmodel = SVC()
-#
-# # fit/train the model on the training data
-# svmmodel.fit(X_scaled, y)
-#
-# # generate predictions
-# predictions = svmmodel.predict(X_scaled)
-#
-# # evaluate performance of the model
-# print(classification_report(y, predictions))
-# print("Accuracy: {}".format(accuracy_score(y, predictions)))
+print(classification_report(y, predictions_test))
+print("Accuracy: {}".format(accuracy_score(y, predictions_test))) # can alternatively use model.score(X, y)
