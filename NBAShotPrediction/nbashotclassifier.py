@@ -20,18 +20,6 @@ sns.set_style('whitegrid')
 palette = sns.color_palette('deep', 5)
 palette[1], palette[2] = palette[2], palette[1]
 
-# detect the use of the test set to adjust for missing header (SHOT_MADE_FLAG)
-def test_data_loaded(data_frame):
-    """The 'SHOT_MADE_FLAG' header is not present in the test set (solution_no_answer.csv)
-        and thus, cannot be indexed. When dropping old features, this header must be removed from the list.
-        The 'EVENT_TYPE' header is the same thing, so it is used instead."""
-    # drop header from the data frame
-    data_frame = data_frame.drop(['ACTION_TYPE', 'EVENTTIME', 'GAME_DATE', 'HTM',
-                'MINUTES_REMAINING', 'PERIOD', 'PLAYER_ID', 'PLAYER_NAME', 'QUARTER', 'SECONDS_REMAINING',
-                'SHOT_ATTEMPTED_FLAG', 'SHOT_TIME', 'SHOT_TYPE', 'SHOT_ZONE_AREA', 'SHOT_ZONE_BASIC',
-                'SHOT_ZONE_RANGE', 'TEAM_ID', 'TEAM_NAME', 'VTM', 'LOC_X', 'LOC_Y'], axis=1)
-    return data_frame
-
 # define file name
 file_name = 'train.csv'
 # load the NBA shot data set using Pandas
@@ -52,15 +40,11 @@ shot_zone_area = pd.get_dummies(nba['SHOT_ZONE_AREA'])
 shot_zone_basic = pd.get_dummies(nba['SHOT_ZONE_BASIC'])
 shot_zone_range = pd.get_dummies(nba['SHOT_ZONE_RANGE'])
 
-# detect use of test set
-if file_name=='solution_no_answer.csv':
-    nba = test_data_loaded(nba)
-else: # training or validation set are being used
-    # remove old features
-    nba = nba.drop(['ACTION_TYPE', 'EVENTTIME', 'GAME_DATE', 'GAME_ID', 'HTM',
-                    'MINUTES_REMAINING', 'PERIOD', 'PLAYER_ID', 'PLAYER_NAME', 'QUARTER', 'SECONDS_REMAINING',
-                    'SHOT_ATTEMPTED_FLAG', 'SHOT_TIME', 'SHOT_TYPE', 'SHOT_ZONE_AREA', 'SHOT_ZONE_BASIC',
-                    'SHOT_ZONE_RANGE', 'TEAM_ID', 'TEAM_NAME', 'VTM', 'LOC_X', 'LOC_Y'], axis=1)
+# drop old and unnecessary headers from data frame
+nba = nba.drop(['ACTION_TYPE', 'EVENTTIME', 'GAME_DATE', 'GAME_ID', 'HTM',
+                'MINUTES_REMAINING', 'PERIOD', 'PLAYER_ID', 'PLAYER_NAME', 'QUARTER', 'SECONDS_REMAINING',
+                'SHOT_ATTEMPTED_FLAG', 'SHOT_TIME', 'SHOT_TYPE', 'SHOT_ZONE_AREA', 'SHOT_ZONE_BASIC',
+                'SHOT_ZONE_RANGE', 'TEAM_ID', 'TEAM_NAME', 'VTM', 'LOC_X', 'LOC_Y'], axis=1)
 
 # add all of the new features
 nba = pd.concat([nba, action_type, shot_type, shot_zone_area, shot_zone_basic, shot_zone_range], axis=1)
@@ -70,23 +54,26 @@ y = nba['SHOT_MADE_FLAG']
 # set prediction data (return view/copy with column(s) removed)
 X = nba.drop(['SHOT_MADE_FLAG', 'GAME_EVENT_ID'], axis=1)
 
-# scaler = StandardScaler()
-# X_scaled = scaler.fit_transform(X)
-#
+# create a standard scaler object
+scaler = StandardScaler()
+
+# standard scale the training data
+X_scaled = scaler.fit_transform(X)
+
 # create logistic regression model (transformed = 1 / (1 + e^-x))
 logmodel = LogisticRegression()
-#
-# logmodel.fit(X_scaled, y)
-#
-# predictions = logmodel.predict(X_scaled)
 
 # fit/train the model on the training data
-logmodel.fit(X, y)
+logmodel.fit(X_scaled, y)
 
 # get predictions for the trained model
-predictions_train = logmodel.predict(X)
+predictions_train = logmodel.predict(X_scaled)
 
-# import test data ************************************************
+# evaluate performance of the model
+print(classification_report(y, predictions_train))
+print("Accuracy: {}".format(accuracy_score(y, predictions_train))) # can alternatively use model.score(X, y)
+
+# import test data
 test_nba = pd.read_csv('solution_no_answer.csv')
 
 # convert categorical classes into binary values to feed into the model
@@ -97,7 +84,10 @@ test_shot_zone_basic = pd.get_dummies(test_nba['SHOT_ZONE_BASIC'])
 test_shot_zone_range = pd.get_dummies(test_nba['SHOT_ZONE_RANGE'])
 
 # get new dataframe for test data
-test_nba = test_data_loaded(test_nba)
+test_nba = test_nba.drop(['ACTION_TYPE', 'EVENTTIME', 'GAME_DATE', 'HTM',
+            'MINUTES_REMAINING', 'PERIOD', 'PLAYER_ID', 'PLAYER_NAME', 'QUARTER', 'SECONDS_REMAINING',
+            'SHOT_ATTEMPTED_FLAG', 'SHOT_TIME', 'SHOT_TYPE', 'SHOT_ZONE_AREA', 'SHOT_ZONE_BASIC',
+            'SHOT_ZONE_RANGE', 'TEAM_ID', 'TEAM_NAME', 'VTM', 'LOC_X', 'LOC_Y'], axis=1)
 
 # add the new features
 test_nba = pd.concat([test_nba, test_action_type, test_shot_type, test_shot_zone_area,
@@ -106,15 +96,15 @@ test_nba = pd.concat([test_nba, test_action_type, test_shot_type, test_shot_zone
 # set prediction data (return view/copy with column(s) removed)
 X_test = test_nba.drop('GAME_EVENT_ID', axis=1)
 
-# generate predictions for the withheld test data
-predictions_test = logmodel.predict(X_test)
-# #***************************************************************
-# # create submission for Kaggle
-# submission = pd.DataFrame({"GAME_EVENT_ID": test_nba_2["GAME_EVENT_ID"], "SHOT_MADE_FLAG": predictions})
-#
-# # write submission to csv
-# submission.to_csv("new_logreg_submission.csv", index=False) # do not save index values
+# add missing headers (two categories from ACTION_TYPE)
+X_test['Running Alley Oop Layup Shot'] = pd.Series(0, index=X_test.index)
+X_test['Driving Jump Shot'] = pd.Series(0, index=X_test.index)
 
-# evaluate performance of the model
-print(classification_report(y, predictions_test))
-print("Accuracy: {}".format(accuracy_score(y, predictions_test))) # can alternatively use model.score(X, y)
+# generate predictions based on test data
+predictions_test = logmodel.predict(X_test)
+
+# create submission for Kaggle
+submission = pd.DataFrame({"GAME_EVENT_ID": test_nba["GAME_EVENT_ID"], "SHOT_MADE_FLAG": predictions_test})
+
+# write submission to csv
+submission.to_csv("logreg_submission2.csv", index=False) # do not save index values
