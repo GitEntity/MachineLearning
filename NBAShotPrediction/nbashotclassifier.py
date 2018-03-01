@@ -9,6 +9,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler, RobustScaler, MinMaxScaler
 from sklearn.metrics import classification_report, accuracy_score
+from sklearn.decomposition import PCA
 
 import pandas as pd
 import numpy as np
@@ -58,6 +59,10 @@ scaler = StandardScaler().fit(X)
 # define standard scaled transformation on training data
 X_scaled = scaler.transform(X)
 
+# attempt dimensionality reduction via Principal Component Analysis (PCA)
+pca_std = PCA().fit(X_scaled)
+X_scaled = pca_std.transform(X_scaled)
+
 # create logistic regression model (transformed = 1 / (1 + e^-x))
 myModel = LogisticRegression()
 
@@ -101,8 +106,11 @@ y_val = nba_val['SHOT_MADE_FLAG']
 # set prediction data (return view/copy with column(s) removed)
 X_val = nba_val.drop(['SHOT_MADE_FLAG', 'GAME_EVENT_ID'], axis=1)
 
-# apply standard scaler transformation on the validation data
+# apply scaler transformation on the vaildation data
 X_val_scaled = scaler.transform(X_val)
+
+# apply pca transformation on the validation data
+X_val_scaled = pca_std.transform(X_val_scaled)
 
 # get predictions on the validation set
 predictions_val = myModel.predict(X_val_scaled)
@@ -143,6 +151,9 @@ X_test['Driving Jump Shot'] = pd.Series(0, index=X_test.index)
 # apply scaler transformation on the test data
 X_test_scaled = scaler.transform(X_test)
 
+# apply pca transformation on the test data
+X_test_scaled = pca_std.transform(X_test_scaled)
+
 # generate predictions based on test data
 predictions_test = myModel.predict(X_test_scaled)
 
@@ -150,4 +161,4 @@ predictions_test = myModel.predict(X_test_scaled)
 submission = pd.DataFrame({"GAME_EVENT_ID": test_nba["GAME_EVENT_ID"], "SHOT_MADE_FLAG": predictions_test})
 
 # write submission to csv
-submission.to_csv("logreg_submission_scaledtest2.csv", index=False) # do not save index values
+submission.to_csv("logreg_submission_scaled_pca.csv", index=False) # do not save index values
