@@ -4,9 +4,9 @@
 # This program is a supervised learning classifier for news article popularity
 
 # import libraries
-import numpy as np # linear algebra
-import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
-import nltk # tool kit for natural language processing
+import numpy as np  # linear algebra
+import pandas as pd  # data processing, CSV file I/O (e.g. pd.read_csv)
+import nltk  # tool kit for natural language processing
 
 from sklearn.cluster import KMeans
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -26,11 +26,15 @@ contentsTest = pd.read_csv('test.csv', header=None)
 # load the testing data (titles)
 titlesTest = pd.read_csv('test2.csv', header=None)
 
+# concatenate title and content dataframes
+combinedTrain = pd.concat([contentsTrain, titlesTrain], axis=1)
+combinedTest = pd.concat([contentsTest, titlesTest], axis=1)
+
 # create a classification model
-clf = KNeighborsClassifier(n_jobs= -1)
+clf = MultinomialNB()
 
 # store the document-term matrix (X) and target vector (y)
-X = contentsTrain
+X = combinedTrain
 y = labelsTrain.values.ravel()
 
 # fit/train the model on the training data
@@ -49,7 +53,7 @@ print("Accuracy: {}".format(accuracy_score(y, predictionsTrain))) # can alternat
 # print(metrics.confusion_matrix(y, predictionsTrain))
 
 # store the document-term matrix for the test data
-X_test = contentsTest
+X_test = combinedTest
 
 # generate predictions for test data
 predictionsTest = myModel.predict(X_test)
@@ -63,4 +67,4 @@ for i in range(1, len(predictionsTest) + 1):
 submission = pd.DataFrame({"id": indexId, "class": predictionsTest})
 
 # write submission to .csv file
-submission.to_csv("News_Submission_1.csv", index=False) # do not save index values
+submission.to_csv("News_Submission.csv", index=False) # do not save index values
